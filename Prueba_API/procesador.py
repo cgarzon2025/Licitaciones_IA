@@ -5,7 +5,7 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 import re, json, os
 
-client = OpenAI(api_key="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")  # Reemplazar con tu clave real
+client = OpenAI(api_key="")  # Reemplazar con tu clave real
 
 # Clase de conexion MySQL
 class ConexionMySQL:
