@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+python-multipart
+mysql-connector-python
+openai
+scikit-learn
+numpy
