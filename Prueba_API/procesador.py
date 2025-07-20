@@ -6,7 +6,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 import re, json, os
 
 client = OpenAI(api_key="")  # Reemplazar con tu clave real
-
+#cambios
 # Clase de conexion MySQL
 class ConexionMySQL:
     def __init__(self):
