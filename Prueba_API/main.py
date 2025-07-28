@@ -37,7 +37,7 @@ async def evaluar(file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, buffer)
 
     resultado = evaluar_licitacion(filepath)
-    print("Resultado procesado:", resultado)
+    #print("Resultado procesado:", resultado)
 
     if not resultado or not isinstance(resultado, dict):
         return HTMLResponse(content="<h3>Error al procesar el archivo</h3>", status_code=500)

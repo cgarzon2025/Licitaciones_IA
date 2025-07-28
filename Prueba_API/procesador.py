@@ -67,21 +67,28 @@ def evaluar_licitacion(filepath):
             }
         ]
     ).output_text.strip()
+    print(f'Objeto: {objeto}')
 
     emb_objeto = client.embeddings.create(model="text-embedding-3-small", input=objeto)
     simil = cosine_similarity([np.array(emb_objeto.data[0].embedding)], array_exp)[0]
     top_indices = simil.argsort()[-3:][::-1]
 
+    # Lista para almacenar los textos más similares
     text_similares = []
-    sim = 0
-    count = 0
-    for idx in top_indices:
+    sim_ponderada = 0
+    si2 = 0
+    ponderaciones = [0.6, 0.3, 0.1]
+    #print('PRUEBA 1')
+    for i, idx in enumerate(top_indices):
         text_similares.append(lista_exp[idx])
-        sim += simil[idx]
-        count += 1
-    sim_prom = sim / count
+        si2 += simil[idx]
+        sim_ponderada += simil[idx] * ponderaciones[i]
 
-    cumple_obj = "SI" if sim_prom > 0.60 else "NO"
+    sim_prom = sim_ponderada / sum(ponderaciones)
+    sim_prom2 = si2 / len(top_indices)
+    print(f'Promedio objeto: {sim_prom2} _ {sim_prom}')
+
+    cumple_obj = "SI" if sim_prom >= 0.55 else "NO"
 
     # ****** CODIGOS UNSPSC ******
     # Extraer codigos UNSPSC
@@ -130,14 +137,14 @@ def evaluar_licitacion(filepath):
             no_encontrados.append(codigo)
 
     porcentaje_encontrados = (len(encontrados) / len(lista_cod_solic)) if len(lista_cod_solic) > 0 else 0
-    #print(f'Encontrados: {encontrados}\n No encontrados: {no_encontrados}')
+    print(f'Encontrados: {encontrados}\n No encontrados: {no_encontrados}')
 
     cumple_unspsc = "SI" if porcentaje_encontrados > 0.75 else "NO"
 
     # ****** INDICADORES FINANCIEROS ******
     # Extraer indicadores financieros
     resp_ind = client.responses.create(
-        model='gpt-4o-mini',
+        model='gpt-4o',
         input=[
             {
                 'role': 'system',
@@ -146,7 +153,8 @@ def evaluar_licitacion(filepath):
                     "Tu tarea es extraer los indicadores financieros de los documentos proporcionados, "
                     "asegurarte de estandarizar todos los valores (elimina símbolos como '$', '%', comas, puntos de miles o caracteres no numéricos) "
                     "y convertir porcentajes a decimales cuando corresponda. "
-                    "Luego compara cada indicador solicitado con el correspondiente de la base INSITEL, tener en cuenta cuando se pide Mayor que ó Menor qué. "
+                    "Luego compara cada indicador solicitado con el correspondiente de la base INSITEL,"
+                    "tener en cuenta cuando se pide Mayor que ó Menor qué, algunas licitaciones solicitan los valores en formato de mínimo y máximo, en eso casos recordar que cuando nos pide mínimo están solicitando un valor mayor o igual y cuando solicitan máximo se solicita un valor menor o igual."
                     "Devuelve solo un arreglo JSON con la siguiente estructura exacta:\n\n"
                     "[\n"
                     "  {\n"
@@ -199,19 +207,48 @@ def evaluar_licitacion(filepath):
             # Lista con nombre del indicador y valor solicitado
             indic_financieros = [
                 (ind.Indicador, "CUMPLE" if ind.Cumplimos else "NO CUMPLE")
+                #(ind.Indicador, ind.Valor_Indicador_Solicitado, "CUMPLE" if ind.Cumplimos else "NO CUMPLE")
                 for ind in indicadores
             ]
             return indic_financieros
         except Exception as e:
             print("Error al convertir la salida en objetos Indicadores:", e)
 
+    # *********** PRUEBA VALOR INDICADOR:
+    def extr_indic(output):
+        # Limpiar delimitadores de bloque
+        if output.startswith("```json"):
+            output = output.replace("```json", "").strip()
+        if output.startswith("```"):
+            output = output.replace("```", "").strip()
+        if output.endswith("```"):
+            output = output[:-3].strip()
+
+        try:
+            lista_dicts = json.loads(output)
+            indicadores = [Indicadores(**item) for item in lista_dicts]
+
+            # Lista con nombre del indicador y valor solicitado
+            indic_financieros = [
+                #(ind.Indicador, "CUMPLE" if ind.Cumplimos else "NO CUMPLE")
+                (ind.Indicador, ind.Valor_Indicador_Solicitado, "CUMPLE" if ind.Cumplimos else "NO CUMPLE")
+                for ind in indicadores
+            ]
+            return indic_financieros
+        except Exception as e:
+            print("Error al convertir la salida en objetos Indicadores:", e)
+    # ***********
+
     db.cerrar()
     # Indicadores financieros procesados
     indicadores_financieros = extract_indic(resp_ind)
+    ind = extr_indic(resp_ind)
+    print(f'Indicadores: {ind}')
 
     indicador = {
         nombre: "Cumple" if estado == "CUMPLE" else "No Cumple"
         for nombre, estado in indicadores_financieros
+        #for nombre, estado, valor in indicadores_financieros
     }
 
     # Calcular promedio de cumplimiento
@@ -235,13 +272,16 @@ def evaluar_licitacion(filepath):
         "indicadores": {
             nombre: "Cumple" if estado == "CUMPLE" else "No Cumple"
             for nombre, estado in indicadores_financieros
+            #for nombre, estado, valor in indicadores_financieros
         },
         "conclusion": conclusion
     }
+
     return resultado
+
 '''
 if __name__ == "__main__":
-    resultado = evaluar_licitacion("uploads/resumen_pliegos_2.pdf")
+    resultado = evaluar_licitacion("uploads/prueba_objeto.pdf")
     print("Resultado final:")
     print(resultado)
 '''
