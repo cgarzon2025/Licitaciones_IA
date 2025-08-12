@@ -6,7 +6,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 import re, json, os
 from pydantic import BaseModel, Field
 
-client = OpenAI(api_key="")  # Reemplazar con tu clave real
+client = OpenAI(api_key="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")  # Reemplazar con tu clave real
 #cambios
 # Clase de conexion MySQL
 class ConexionMySQL:
@@ -39,9 +39,30 @@ def evaluar_licitacion(filepath):
     lista_exp = db.consultar("SELECT objeto FROM experiencia;")
     lista_cod_base = db.consultar("SELECT codigo_unspsc FROM codigos_unspsc;")
     lista_indic = db.consultar("SELECT descripcion, valor FROM indicadores_financieros;")
+    cod = db.consultar("SELECT consecutivo, codigos_unspsc FROM contratos")
+
+    def obtener_diccionario_contratos(db):
+        query = "SELECT consecutivo, codigos_unspsc FROM contratos;"
+        resultados = db.consultar(query)
+
+        contratos_dict = {}
+        for consecutivo, codigo in resultados:
+            if consecutivo not in contratos_dict:
+                contratos_dict[consecutivo] = []
+            contratos_dict[consecutivo].append(codigo)
+
+        return contratos_dict
+
+    contratos_dict = obtener_diccionario_contratos(db)
+
+    for consecutivo, codigos in contratos_dict.items():
+        print(f"Contrato {consecutivo} tiene los siguientes códigos:")
+        for codigo in codigos:
+            print(f"  - {codigo}")7
+
 
     lista_cod = set(str(c)[:6] + '00' for c in lista_cod_base)
-
+    '''
     # Subir archivo
     archivo = client.files.create(file=open(filepath, "rb"), purpose="user_data")
 
@@ -89,7 +110,7 @@ def evaluar_licitacion(filepath):
     print(f'Promedio objeto: {sim_prom2} _ {sim_prom}')
 
     cumple_obj = "SI" if sim_prom >= 0.55 else "NO"
-
+    
     # ****** CODIGOS UNSPSC ******
     # Extraer codigos UNSPSC
     codigos = client.responses.create(
@@ -125,7 +146,7 @@ def evaluar_licitacion(filepath):
     clean_text = clean_text.strip()
 
     lista_cod8 = json.loads(clean_text)
-    lista_cod_solic = set(c[:6] + '00' for c in lista_cod8)
+    lista_cod_solic = set(c[:6] + '' for c in lista_cod8)
 
     encontrados = []
     no_encontrados = []
@@ -278,10 +299,9 @@ def evaluar_licitacion(filepath):
     }
 
     return resultado
-
-'''
+    '''
+    return True
 if __name__ == "__main__":
-    resultado = evaluar_licitacion("uploads/prueba_objeto.pdf")
+    resultado = evaluar_licitacion("uploads/resumen_pliegos_1.pdf")
     print("Resultado final:")
     print(resultado)
-'''
