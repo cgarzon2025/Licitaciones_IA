@@ -1,4 +1,6 @@
-# procesador.py
+#   ***** BACKEND PARA PROYECTO LICITACIONES CON IA *****
+
+# LIBRERIAS NECESARIAS
 from openai import OpenAI
 import mysql.connector
 import numpy as np
@@ -6,9 +8,10 @@ from sklearn.metrics.pairwise import cosine_similarity
 import re, json, os
 from pydantic import BaseModel, Field
 
+# LLAMADO A LLAVE DE OPEN AI
 client = OpenAI(api_key="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")  # Reemplazar con tu clave real
-#cambios
-# Clase de conexion MySQL
+
+# CLASE PARA CONEXION A DB MYSQL
 class ConexionMySQL:
     def __init__(self):
         self.conexion = mysql.connector.connect(
@@ -33,6 +36,31 @@ class ConexionMySQL:
         self.cursor.close()
         self.conexion.close()
 
+# FUNCION PRINCIPAL
+def evaluar_licitacion():
+    # ALMACENAR LISTAS DE DATOS NECESARIOS
+    db = ConexionMySQL()
+    lista_experiencia = db.consultar("SELECT objeto FROM experiencia;")
+    lista_codigos = db.consultar("SELECT codigo_unspsc FROM codigos_unspsc;")
+    lista_indicadores = db.consultar("SELECT descripcion, valor FROM indicadores_financieros;")
+
+    # LISTA DE CODIGOS DE CADA CONTRATO
+    lista_codigos_contrato = db.consultar("SELECT consecutivo, codigos_unspsc FROM contratos;")
+    diccionario_contratos = {}
+    for consecutivo, codigos in lista_codigos_contrato:
+        if consecutivo not in diccionario_contratos:
+            diccionario_contratos[consecutivo] = []
+        diccionario_contratos[consecutivo].append(codigos)
+    '''
+    for consecutivo, codigos in diccionario_contratos.items():
+        print(f'{consecutivo}:')
+        for codigo in codigos:
+            print(f'  - {codigo}')
+    '''
+
+    return True
+evaluar_licitacion()
+'''
 # Evaluador
 def evaluar_licitacion(filepath):
     db = ConexionMySQL()
@@ -62,7 +90,7 @@ def evaluar_licitacion(filepath):
 
 
     lista_cod = set(str(c)[:6] + '00' for c in lista_cod_base)
-    '''
+    
     # Subir archivo
     archivo = client.files.create(file=open(filepath, "rb"), purpose="user_data")
 
@@ -299,9 +327,9 @@ def evaluar_licitacion(filepath):
     }
 
     return resultado
-    '''
     return True
 if __name__ == "__main__":
     resultado = evaluar_licitacion("uploads/resumen_pliegos_1.pdf")
     print("Resultado final:")
     print(resultado)
+    '''
