@@ -9,7 +9,7 @@ import re, json, os
 from pydantic import BaseModel, Field
 
 # LLAMADO A LLAVE DE OPEN AI
-client = OpenAI(api_key="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")  # Reemplazar con tu clave real
+client = OpenAI(api_key="")  # Reemplazar con tu clave real
 
 # CLASE PARA CONEXION A DB MYSQL
 class ConexionMySQL:
@@ -53,7 +53,7 @@ def evaluar_licitacion():
         diccionario_contratos[consecutivo].append(codigos)
 
     # SUBIR ARCHIVO
-    archivo = client.files.create(file=open('PruebaLicitacion4.pdf', "rb"), purpose="user_data")
+    archivo = client.files.create(file=open('PruebaLicitacion1.pdf', "rb"), purpose="user_data")
 
     # ****** OBJETO ******
     # EXTRAER OBJETO
@@ -174,7 +174,7 @@ def evaluar_licitacion():
                 'role': 'system',
                 'content': (
                     "Eres un asistente experto en análisis financiero para licitaciones. "
-                    "Tu tarea es extraer los indicadores financieros de los documentos proporcionados, "
+                    "Tu tarea es extraer los indicadores financieros de los documentos proporcionados ('Indice de Liquidez', 'Indice de Endeudamiento', 'Razón de Cobertura de Interes' 'Rentabilidad del Patrimonio' y 'Rentabilidad del Activo'), "
                     "asegurarte de estandarizar todos los valores (elimina símbolos como '$', '%', comas, puntos de miles o caracteres no numéricos) "
                     "y convertir porcentajes a decimales cuando corresponda. "
                     "Luego compara cada indicador solicitado con el correspondiente de la base INSITEL,"
