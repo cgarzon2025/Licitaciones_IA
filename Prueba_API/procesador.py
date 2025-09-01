@@ -6,7 +6,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 import re, json, os
 from pydantic import BaseModel, Field
 
-client = OpenAI(api_key="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")  # Reemplazar con tu clave real
+client = OpenAI(api_key="")  # Reemplazar con tu clave real
 #cambios
 # Clase de conexion MySQL
 class ConexionMySQL:

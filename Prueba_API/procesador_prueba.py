@@ -54,7 +54,7 @@ def evaluar_licitacion():
 
     # SUBIR ARCHIVO
     archivo = client.files.create(file=open('PruebaLicitacion1.pdf', "rb"), purpose="user_data")
-
+#GPT4-32K -> BUSCAR MODELO
     # ****** OBJETO ******
     # EXTRAER OBJETO
     objeto = client.responses.create(
