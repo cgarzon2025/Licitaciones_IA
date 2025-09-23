@@ -54,7 +54,7 @@ def evaluar_licitacion(filepath):
 
     # Extraer objeto
     objeto = client.responses.create(
-        model='gpt-4o',
+        model='gpt-4o-mini',
         input=[
             {
                 'role': 'user',
@@ -77,7 +77,6 @@ def evaluar_licitacion(filepath):
     # Lista para almacenar los textos más similares
     text_similares = []
     sim_ponderada = 0
-    si2 = 0
     ponderaciones = [0.7, 0.2, 0.1]
     UMBRAL_OBJETO = 0.55  # umbral ponderado que ya usas
     UMBRAL_OBJETO_MIN = 0.40  # umbral absoluto de descarte
@@ -97,7 +96,7 @@ def evaluar_licitacion(filepath):
     # ****** CODIGOS UNSPSC ******
     # Extraer codigos UNSPSC
     codigos = client.responses.create(
-        model='gpt-4o',
+        model='gpt-5',
         input=[
             {
                 "role": "system",
@@ -148,13 +147,13 @@ def evaluar_licitacion(filepath):
     # ****** INDICADORES FINANCIEROS ******
     # Extraer indicadores financieros
     resp_ind = client.responses.create(
-        model='gpt-4o',
+        model='gpt-5',
         input=[
             {
                 'role': 'system',
                 'content': (
                     "Eres un asistente experto en análisis financiero para licitaciones. "
-                    "Tu tarea es extraer los indicadores financieros de los documentos proporcionados, "
+                    "Tu tarea es extraer los indicadores financieros de los documentos proporcionados (Indice de Liquidez, Indice de Endeudamiento, Razon de Cobertura de Intereses, Rentabilidad del Patrimonio y Rentabilidad del Activo)"
                     "asegurarte de estandarizar todos los valores (elimina símbolos como '$', '%', comas, puntos de miles o caracteres no numéricos) "
                     "y convertir porcentajes a decimales cuando corresponda. "
                     "Luego compara cada indicador solicitado con el correspondiente de la base INSITEL,"

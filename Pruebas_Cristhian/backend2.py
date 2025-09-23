@@ -10,9 +10,6 @@ from mysql.connector import Error
 from openai import OpenAI
 
 # CLIENTE OpenAI - usa variable de entorno
-API_KEY = os.getenv("OPENAI_API_KEY", None)
-if not API_KEY:
-    raise RuntimeError("Define OPENAI_API_KEY en variables de entorno.")
 client = OpenAI(api_key="")
 
 class ConexionMySQL:
@@ -81,7 +78,7 @@ def code_matches(required_code, contract_codes, prefix_len=None):
                 return True
     return False
 
-def evaluar_licitacion(pdf_path: str):
+def evaluar_licitacion(pdf_path):
     db = None
     try:
         # 1) Cargar datos desde DB
@@ -97,7 +94,7 @@ def evaluar_licitacion(pdf_path: str):
 
         # 2.1 Extraer el objeto
         resp_objeto = client.responses.create(
-            model='gpt-4o',
+            model='gpt-4o-mini',
             input=[
                 {
                     "role": "user",
@@ -131,38 +128,65 @@ def evaluar_licitacion(pdf_path: str):
         emb_objeto = client.embeddings.create(model="text-embedding-3-small", input=objeto)
         vec_obj = np.array(emb_objeto.data[0].embedding).reshape(1, -1)
 
-        # 4) Similaridad
+        # Similaridad con vectores de referencia
         simil = cosine_similarity(vec_obj, vectores_exp)[0]
         top_k = 3
         top_indices = np.argsort(simil)[-top_k:][::-1]
 
+        # Ponderaciones
         ponderaciones = [0.7, 0.2, 0.1][:len(top_indices)]
-        sim_ponderada = sum(simil[idx] * ponderaciones[i] for i, idx in enumerate(top_indices))
-        sim_prom = sim_ponderada / sum(ponderaciones)
-        cumple_obj = "SI" if sim_prom >= 0.55 else "NO"
+        sim_prom = sum(simil[idx] * ponderaciones[i] for i, idx in enumerate(top_indices)) / sum(ponderaciones)
+
+        # Mejor score encontrado
+        mejor_match = max(simil)
+
+        # Umbrales
+        UMBRAL_OBJETO = 0.55
+        UMBRAL_OBJETO_MIN = 0.40
+
+        # Validación doble (igual a backend1)
+        if sim_prom >= UMBRAL_OBJETO and mejor_match >= UMBRAL_OBJETO_MIN:
+            cumple_obj = "SI"
+        else:
+            cumple_obj = "NO"
+
+        print(f"Promedio objeto: {sim_prom:.3f}, Mejor match: {mejor_match:.3f}, Cumple: {cumple_obj}")
 
         # 5) Extraer experiencia en JSON
         prompt_system = (
             "Eres un asistente experto en análisis de pliegos de condiciones de licitaciones. "
             "Tu tarea es analizar el documento proporcionado y extraer la información sobre los requisitos de experiencia solicitados. "
-            "Debes devolver únicamente un objeto JSON válido con las claves: experiencia_general y experiencia_especifica. "
+            "Debes devolver únicamente un objeto JSON válido con las claves: experiencia_general. "
             "Si un campo no aparece, usar valores por defecto: numero_contratos=1, condicion_experiencia='minimo', porcentaje=1.0, "
             "valor_smlmv=0, antiguedad=0. Convertir porcentajes a decimales. No incluir texto fuera del JSON."
+            '''
+            "{\n"
+            "  \"experiencia_general\": {\n"
+            "    \"presupuesto_oficial\": float,  // Valor numérico del presupuesto oficial (puede aparecer como 'valor estimado', 'presupuesto oficial' u otros términos similares)\n"
+            "    \"IVA\": boolean,  // True si el presupuesto incluye IVA, False en caso contrario\n"
+            "    \"numero_contratos\": int,  // Número de contratos ejecutados requeridos para verificar la experiencia del proponente.\n"
+            "    \"condicion_experiencia\": string,  // condicion que debe cumplir el número de contratos: \"minimo\", \"maximo\", \"igual\"\n"
+            "    \"porcentaje\": float,  // Porcentaje en valor decimal (80% → 0.8).\n"
+            "    \"valor_smlmv\": float,  // Valor en salarios mínimos.\n"
+            "    \"codigos\": [string],  // Lista de códigos UNSPSC solicitados\n"
+            "    \"antiguedad\": int  // Años mínimos de antigüedad de los contratos.0\n"
+            "  },\n"
+            '''
         )
 
         resp_exper = client.responses.create(
-            model='gpt-4o',
+            model='gpt-5',
             input=[
                 {"role": "system", "content": prompt_system},
                 {"role": "user", "content": [
                     {"type": "input_file", "file_id": archivo.id},
-                    {"type": "input_text", "text": "Analiza el documento y devuelve el JSON solicitado con la experiencia general y específica."}
+                    {"type": "input_text", "text": "Analiza el documento y devuelve el JSON solicitado con la experiencia general."}
                 ]}
             ]
         )
         experiencia_text = resp_exper.output_text
 
-        print("DEBUG - Respuesta cruda del modelo:\n", experiencia_text)
+        #print("DEBUG - Respuesta cruda del modelo:\n", experiencia_text)
 
         # Limpiar JSON
         texto_limpio = re.sub(r"```(?:json)?\n?", "", experiencia_text, flags=re.IGNORECASE)
@@ -185,8 +209,10 @@ def evaluar_licitacion(pdf_path: str):
         codigos_general = exp_gen.get("codigos", [])
         antiguedad_general = int(exp_gen.get("antiguedad", 0))
 
-        if valor_smlmv_general == 0 and presupuesto_general:
-            valor_smlmv_general = float(presupuesto_general) / 1423500  # SMMLV base
+        if valor_smlmv_general != 0:
+            valor_smlmv_general = valor_smlmv_general
+        else:
+            valor_smlmv_general = float(presupuesto_general) / 1423500
 
         # 6) Matching de códigos
         codigos_requeridos = normalize_codes(codigos_general)
@@ -206,6 +232,7 @@ def evaluar_licitacion(pdf_path: str):
 
         contratos_similares = [lista_experiencia[idx][0] for idx in top_indices]
         contratos_candidatos_finales = list(set(contratos_validos) & set(contratos_similares))
+        print(contratos_candidatos_finales)
         cumple_total = "SI" if len(contratos_candidatos_finales) >= num_contratos_general else "NO"
 
         def convertir_a_float(valor):
@@ -263,6 +290,7 @@ def evaluar_licitacion(pdf_path: str):
     finally:
         if db:
             db.cerrar()
-
+'''
 if __name__ == "__main__":
-    evaluar_licitacion()
+    evaluar_licitacion('licitacion1.pdf')
+'''
